@@ -57,73 +57,81 @@ function getRetryDelay(attempt: number): number {
  * @param responseType - The desired output format.
  * @returns The results in the chosen format.
  */
-export function extractGoogleResults(
+export async function extractGoogleResults(
   html: string,
   responseType: 'text' | 'json' | 'html' | 'markdown'
-): string | object {
+): Promise<string | object> {
   try {
-    const window = new Window()
-    const document = window.document
+    // Create a new Window with settings that disable JavaScript and CSS file loading
+    const window = new Window({
+      settings: {
+        disableJavaScriptFileLoading: true,
+        disableJavaScriptEvaluation: true,
+        disableCSSFileLoading: true,
+        timer: {
+          maxTimeout: 3000,
+          maxIntervalTime: 3000,
+        }
+      }
+    });
+    const document = window.document;
+    document.write(html);
+    await window.happyDOM.waitUntilComplete();
 
-    // Write the HTML and immediately close the document to complete parsing.
-    document.write(html)
-    document.close()
-
-    const results: any[] = []
+    const results: any[] = [];
 
     // Try to fetch news results if available.
-    const newsElements = document.querySelectorAll("[data-news-cluster-id]")
+    const newsElements = document.querySelectorAll("[data-news-cluster-id]");
     if (newsElements.length > 0) {
-      newsElements.forEach((newsElement) => {
-        const linkEl = newsElement.querySelector("a")
-        const url = linkEl?.getAttribute("href")
-        if (!url) return
+      newsElements.forEach(newsElement => {
+        const linkEl = newsElement.querySelector("a");
+        const url = linkEl?.getAttribute("href");
+        if (!url) return;
 
-        const titleEl = newsElement.querySelector('[role="heading"]')
-        const title = titleEl?.textContent?.trim() || ''
-        if (!title) return
+        const titleEl = newsElement.querySelector('[role="heading"]');
+        const title = titleEl?.textContent?.trim() || '';
+        if (!title) return;
 
-        const snippetEl = titleEl?.nextElementSibling
-        const snippet = snippetEl?.textContent?.trim() || ''
+        const snippetEl = titleEl?.nextElementSibling;
+        const snippet = snippetEl?.textContent?.trim() || '';
 
-        results.push({ url, title, snippet })
-      })
+        results.push({ url, title, snippet });
+      });
     } else {
       // Fallback to general search results.
-      const generalElements = document.querySelectorAll(".g")
-      generalElements.forEach((element) => {
-        const titleEl = element.querySelector("h3")
-        const urlEl = element.querySelector("a")
-        if (!titleEl || !urlEl) return
+      const generalElements = document.querySelectorAll(".g");
+      generalElements.forEach(element => {
+        const titleEl = element.querySelector("h3");
+        const urlEl = element.querySelector("a");
+        if (!titleEl || !urlEl) return;
 
-        const title = titleEl.textContent?.trim() || ""
-        const url = urlEl.getAttribute("href") || ""
-        if (!title || !url) return
+        const title = titleEl.textContent?.trim() || "";
+        const url = urlEl.getAttribute("href") || "";
+        if (!title || !url) return;
 
-        results.push({ title, url })
-      })
+        results.push({ title, url });
+      });
     }
 
-    // Process results based on the requested response type.
-    if (responseType === 'text') {
-      return results.map(r => `${r.title} - ${r.url}`).join('\n')
-    } else if (responseType === 'json') {
-      return results
-    } else if (responseType === 'html') {
-      return document.body.innerHTML
-    } else if (responseType === 'markdown') {
-      // A simple markdown conversion. You might refine this further with a markdown converter.
-      return results
-        .map(r => `# ${r.title}\n${r.url}\n${r.snippet ? r.snippet + "\n" : ""}`)
-        .join("\n")
-    }
+    await window.happyDOM.close();
 
-    return results
+    // Return results in the desired format.
+    switch (responseType) {
+      case 'text':
+        return results.map(r => `${r.title} - ${r.url}`).join('\n');
+      case 'json':
+        return results;
+      case 'html':
+        return document.body.innerHTML;
+      case 'markdown':
+        return results
+          .map((r, index) => `${index + 1}. **${r.title}**\n   - URL: ${r.url}\n   - ${r.snippet ? r.snippet : ""}`)
+          .join("\n\n");
+      default:
+        return results;
+    }
   } catch (error) {
-    throw new Error(
-      `Failed to parse Google search results: ${error instanceof Error ? error.message : 'Unknown error'
-      }`
-    )
+    throw new Error(`Failed to parse Google search results: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 
@@ -172,7 +180,7 @@ async function processResponse(response: Response, responseType: 'text' | 'json'
 
   // Special handling for Google search results
   if (url.origin + url.pathname === GOOGLE_SEARCH_URL) {
-    const results = extractGoogleResults(text, responseType);
+    const results = await extractGoogleResults(text, responseType);
     return typeof results === 'string' ? results : JSON.stringify(results, null, 2);
   }
 
