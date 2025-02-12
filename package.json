@@ -1,7 +1,7 @@
 {
-  "name": "mcp-server-starter",
+  "name": "fetch-browser",
   "version": "0.1.0",
-  "description": "A Model Context Protocol server starter template",
+  "description": "Fetch Browser - An MCP server that acts as a browser, fetching web content and Google search results in multiple formats (HTML, JSON, Markdown, Text)",
   "author": {
     "name": "Seth Rose",
     "url": "https://www.sethrose.dev",
@@ -13,7 +13,7 @@
   "private": true,
   "type": "module",
   "bin": {
-    "mcp-server": "./build/index.js"
+    "fetch-browser": "./build/index.js"
   },
   "files": [
     "build"
@@ -28,8 +28,8 @@
     "logs": "tail -n 20 -F ~/Library/Logs/Claude/mcp*.log",
     "clean": "rm -rf build",
     "start": "node build/index.js",
-    "smithery:build": "docker build -t mcp-server-starter -f Dockerfile.smithery .",
-    "smithery:run": "docker run -i --rm mcp-server-starter"
+    "smithery:build": "docker build -t fetch-browser -f Dockerfile.smithery .",
+    "smithery:run": "docker run -i --rm fetch-browser"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.3",

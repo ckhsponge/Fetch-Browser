@@ -598,3 +598,211 @@ By following this template and best practices, you can quickly build a robust MC
    - Implement user consent flows for sensitive operations
    - Validate all inputs using TypeScript types and Zod schemas
    - Handle errors securely without exposing internal details
+
+# Fetch Browser
+
+[![smithery badge](https://smithery.ai/badge/@TheSethRose/fetch-browser)](https://smithery.ai/server/@TheSethRose/fetch-browser)
+
+Fetch Browser is a specialized Model Context Protocol (MCP) server that acts as a browser, allowing AI agents to fetch and process web content in various formats. It features smart handling of Google search results and supports multiple output formats.
+
+## Features
+
+- **Universal Web Content Fetching**:
+  - Fetch any webpage or API endpoint
+  - Support for HTML, JSON, Text, and Markdown responses
+  - Automatic content type detection and conversion
+  - Response size limits and timeout protection
+
+- **Smart Google Search**:
+  - Extract structured results from Google searches
+  - Get the first 5 results with titles, URLs, and descriptions
+  - Format results in HTML, JSON, Markdown, or plain text
+  - Proper headers and retry logic for reliable results
+
+- **Format Conversion**:
+  - Convert HTML to clean Markdown
+  - Pretty-print JSON responses
+  - Preserve original formatting when appropriate
+  - Wrap plain text in code blocks for markdown
+
+- **Robust Error Handling**:
+  - Automatic retries with exponential backoff
+  - Rate limiting protection
+  - Timeout handling
+  - Detailed error messages
+
+## Usage
+
+### Installation
+
+```bash
+# Install via Smithery for your preferred client
+npx -y @smithery/cli install @TheSethRose/fetch-browser --client [client-name]
+
+# Or install directly
+npm install fetch-browser
+```
+
+### Basic Examples
+
+1. **Fetch a webpage as Markdown**:
+```typescript
+{
+  url: "https://example.com",
+  responseType: "markdown"
+}
+```
+
+2. **Get Google search results**:
+```typescript
+{
+  url: "https://www.google.com/search?q=your+search+query",
+  responseType: "json"  // or "markdown", "html", "text"
+}
+```
+
+3. **Fetch JSON API data**:
+```typescript
+{
+  url: "https://api.example.com/data",
+  responseType: "json"
+}
+```
+
+### Response Formats
+
+The server supports multiple response formats:
+
+1. **JSON** (`responseType: "json"`):
+```json
+{
+  "content": [{
+    "type": "text",
+    "text": "{\n  \"key\": \"value\"\n}",
+    "mimeType": "application/json"
+  }]
+}
+```
+
+2. **Markdown** (`responseType: "markdown"`):
+```markdown
+# Page Title
+
+Content converted to clean markdown with:
+- Lists
+- **Bold text**
+- *Italic text*
+- [Links](https://example.com)
+```
+
+3. **HTML** (`responseType: "html"`):
+```html
+<div class="content">
+  Original HTML content
+</div>
+```
+
+4. **Text** (`responseType: "text"`):
+```text
+Plain text content with preserved formatting
+```
+
+### Google Search Results
+
+When fetching from Google search, results are automatically parsed and formatted according to the requested response type:
+
+1. **JSON Format**:
+```json
+[
+  {
+    "title": "First Result Title",
+    "url": "https://example.com",
+    "description": "Description of the first result"
+  },
+  ...
+]
+```
+
+2. **Markdown Format**:
+```markdown
+1. **First Result Title**
+   - URL: https://example.com
+   - Description: Description of the first result
+
+2. **Second Result Title**
+   - URL: https://example2.com
+   - Description: Description of the second result
+```
+
+## Development
+
+1. Clone the repository:
+```bash
+git clone https://github.com/yourusername/fetch-browser.git
+cd fetch-browser
+```
+
+2. Install dependencies:
+```bash
+npm install
+```
+
+3. Build the project:
+```bash
+npm run build
+```
+
+4. Run in development mode:
+```bash
+npm run dev
+```
+
+## Configuration
+
+The server can be configured through environment variables or the `package.json` file:
+
+- `MAX_RETRIES`: Number of retry attempts (default: 3)
+- `MAX_RESPONSE_SIZE`: Maximum response size in bytes (default: 10MB)
+- `DEFAULT_TIMEOUT`: Request timeout in milliseconds (default: 30000)
+
+## Integration
+
+### Claude Desktop
+
+1. Add to your `claude_desktop_config.json`:
+```json
+{
+  "mcpServers": {
+    "fetch-browser": {
+      "command": "npx",
+      "args": ["-y", "@TheSethRose/fetch-browser"]
+    }
+  }
+}
+```
+
+### Cursor
+
+1. Go to Settings > Features > MCP
+2. Add new MCP server
+3. Set transport type to "stdio"
+4. Set command to: `npx -y @TheSethRose/fetch-browser`
+
+## Security
+
+- All URLs are validated before fetching
+- Response size limits prevent memory issues
+- Timeouts prevent hanging requests
+- Rate limiting protection included
+- No sensitive data exposure in errors
+
+## Credits
+
+**Created by Seth Rose**:
+- **Website**: [https://www.sethrose.dev](https://www.sethrose.dev)
+- **𝕏 (Twitter)**: [https://x.com/TheSethRose](https://x.com/TheSethRose)
+- **🦋 (Bluesky)**: [https://bsky.app/profile/sethrose.dev](https://bsky.app/profile/sethrose.dev)
+
+## License
+
+MIT License - See [LICENSE](LICENSE) for details

@@ -1,27 +1,22 @@
 /**
- * MCP Server Starter Template
+ * Fetch Browser
  *
- * This is a reference implementation of a Model Context Protocol (MCP) server.
- * It demonstrates best practices for:
- * - Server initialization and configuration
- * - Tool registration and management
- * - Error handling and logging
- * - Resource cleanup
- *
- * For more information about MCP, visit:
- * https://modelcontextprotocol.io
+ * An MCP server that acts as a browser, providing:
+ * - Web content fetching in multiple formats (HTML, JSON, Text, Markdown)
+ * - Smart Google search results parsing
+ * - Error handling and retries
+ * - Rate limiting protection
  */
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { registerCalculatorTool } from "./examples/calculator.js";
-import { registerRestApiTool } from "./examples/rest-api.js";
+import { registerUrlFetcherTool } from "./url-fetcher.js";
 
 /**
  * Create a new MCP server instance with full capabilities
  */
 const server = new McpServer({
-  name: "mcp-server-starter",
+  name: "fetch-browser",
   version: "0.1.0",
   capabilities: {
     tools: {},
@@ -46,13 +41,12 @@ process.on('uncaughtException', (error: Error) => {
   console.error('Server error:', error);
 });
 
-// Register example tools
+// Register URL fetcher tool
 try {
-  registerCalculatorTool(server);
-  registerRestApiTool(server);
-  logMessage('info', 'Successfully registered all tools');
+  registerUrlFetcherTool(server);
+  logMessage('info', 'Successfully registered URL fetcher tool');
 } catch (error) {
-  logMessage('error', `Failed to register tools: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  logMessage('error', `Failed to register URL fetcher tool: ${error instanceof Error ? error.message : 'Unknown error'}`);
   process.exit(1);
 }
 
@@ -83,8 +77,8 @@ async function main() {
     const transport = new StdioServerTransport();
     await server.connect(transport);
 
-    logMessage('info', 'MCP Server started successfully');
-    console.error('MCP Server running on stdio transport');
+    logMessage('info', 'Fetch Browser started successfully');
+    console.error('Fetch Browser running on stdio transport');
   } catch (error) {
     logMessage('error', `Failed to start server: ${error instanceof Error ? error.message : 'Unknown error'}`);
     process.exit(1);
