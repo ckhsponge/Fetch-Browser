@@ -19,7 +19,7 @@
     "build"
   ],
   "scripts": {
-    "build": "tsc && node -e \"require('fs').chmodSync('build/index.js', '755')\"",
+    "build": "tsc && node -e \"const fs=require('fs'); const path=require('path'); const file='build/index.js'; const content=fs.readFileSync(file,'utf8'); fs.writeFileSync(file,'#!/usr/bin/env node\\n'+content); fs.chmodSync(file,'755');\"",
     "watch": "tsc --watch",
     "inspector": "npx @modelcontextprotocol/inspector build/index.js",
     "dev": "concurrently \"npm run watch\" \"npm run inspector\"",
@@ -33,12 +33,14 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.3",
-    "@smithery/sdk": "latest"
+    "@smithery/sdk": "latest",
+    "jsdom": "^26.0.0"
   },
   "devDependencies": {
+    "@types/jsdom": "^21.1.7",
     "@types/node": "^20.11.24",
-    "typescript": "^5.3.3",
-    "concurrently": "^8.2.2"
+    "concurrently": "^8.2.2",
+    "typescript": "^5.3.3"
   },
   "engines": {
     "node": ">=18.0.0"

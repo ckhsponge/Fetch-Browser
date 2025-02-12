@@ -19,7 +19,16 @@ const server = new McpServer({
   name: "fetch-browser",
   version: "0.1.0",
   capabilities: {
-    tools: {},
+    tools: {
+      fetch_url: {
+        description: "Fetch content from a URL with proper error handling and response processing",
+        parameters: {
+          url: "The URL to fetch",
+          responseType: "Expected response type (text, json, html, markdown)",
+          timeout: "Request timeout in milliseconds (optional)"
+        }
+      }
+    },
     resources: {},
     prompts: {},
     streaming: true

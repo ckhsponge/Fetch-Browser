@@ -13,6 +13,7 @@
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
+import { JSDOM } from 'jsdom';
 
 // Constants
 const MAX_RETRIES = 3;
@@ -50,32 +51,63 @@ function getRetryDelay(attempt: number): number {
  */
 function extractGoogleResults(html: string, responseType: 'text' | 'json' | 'html' | 'markdown'): string {
   try {
-    // Basic extraction of search results
+    // Create a virtual DOM to parse the HTML
+    const dom = new JSDOM(html);
+    const doc = dom.window.document;
     const results: { title: string; url: string; description: string }[] = [];
 
-    // Find all search result divs
-    const resultDivs = html.match(/<div class="g">(.*?)<\/div>/g) || [];
+    // Find all search result divs using modern Google selectors
+    const resultDivs = doc.querySelectorAll('div.g');
 
     for (let i = 0; i < Math.min(MAX_SEARCH_RESULTS, resultDivs.length); i++) {
       const div = resultDivs[i];
 
-      // Extract title
-      const titleMatch = div.match(/<h3[^>]*>(.*?)<\/h3>/);
-      const title = titleMatch ?
-        titleMatch[1].replace(/<[^>]*>/g, '') : 'No title';
+      // Extract title using h3 selector
+      const titleEl = div.querySelector('h3');
+      const title = titleEl ? titleEl.textContent?.trim() : '';
 
-      // Extract URL
-      const urlMatch = div.match(/href="([^"]*)"/) || ['', ''];
-      const url = urlMatch[1];
+      // Extract URL from the main link
+      const linkEl = div.querySelector('a');
+      const url = linkEl ? linkEl.getAttribute('href') : '';
 
-      // Extract description
-      const descMatch = div.match(/<div class="VwiC3b[^"]*"[^>]*>(.*?)<\/div>/);
-      const description = descMatch ?
-        descMatch[1].replace(/<[^>]*>/g, '') : 'No description';
+      // Extract description from the snippet div
+      const descEl = div.querySelector('.VwiC3b, .s');  // Google uses multiple classes
+      const description = descEl ? descEl.textContent?.trim() : '';
 
-      results.push({ title, url, description });
+      // Only add if we have at least a title and URL
+      if (title && url) {
+        results.push({
+          title: title || 'No title',
+          url: url || '',
+          description: description || 'No description'
+        });
+      }
     }
 
+    // If no results found, try alternative selectors
+    if (results.length === 0) {
+      const altResultDivs = doc.querySelectorAll('.tF2Cxc');
+      for (let i = 0; i < Math.min(MAX_SEARCH_RESULTS, altResultDivs.length); i++) {
+        const div = altResultDivs[i];
+        const titleEl = div.querySelector('h3');
+        const linkEl = div.querySelector('a');
+        const descEl = div.querySelector('.VwiC3b, .s');
+
+        const title = titleEl ? titleEl.textContent?.trim() : '';
+        const url = linkEl ? linkEl.getAttribute('href') : '';
+        const description = descEl ? descEl.textContent?.trim() : '';
+
+        if (title && url) {
+          results.push({
+            title: title || 'No title',
+            url: url || '',
+            description: description || 'No description'
+          });
+        }
+      }
+    }
+
+    // Format results based on response type
     switch (responseType) {
       case 'json':
         return JSON.stringify(results, null, 2);
@@ -105,7 +137,7 @@ ${index + 1}. ${result.title}
 `).join('\n');
     }
   } catch (error) {
-    throw new Error('Failed to parse Google search results');
+    throw new Error(`Failed to parse Google search results: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 
