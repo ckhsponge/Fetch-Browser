@@ -34,10 +34,9 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.3",
     "@smithery/sdk": "latest",
-    "jsdom": "^26.0.0"
+    "happy-dom": "^17.1.0"
   },
   "devDependencies": {
-    "@types/jsdom": "^21.1.7",
     "@types/node": "^20.11.24",
     "concurrently": "^8.2.2",
     "typescript": "^5.3.3"

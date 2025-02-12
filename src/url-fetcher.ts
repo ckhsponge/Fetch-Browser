@@ -13,7 +13,7 @@
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { JSDOM } from 'jsdom';
+import { Window } from "happy-dom";
 
 // Constants
 const MAX_RETRIES = 3;
@@ -51,64 +51,80 @@ function getRetryDelay(attempt: number): number {
  */
 function extractGoogleResults(html: string, responseType: 'text' | 'json' | 'html' | 'markdown'): string {
   try {
-    // Create a virtual DOM to parse the HTML
-    const dom = new JSDOM(html);
-    const doc = dom.window.document;
+    // Create a virtual DOM using happy-dom
+    const window = new Window();
+    const document = window.document;
+    document.write(html);
+
     const results: { title: string; url: string; description: string }[] = [];
 
-    // Find all search result divs using modern Google selectors
-    const resultDivs = doc.querySelectorAll('div.g');
+    // Try multiple selectors for Google search results
+    const selectors = [
+      'div.g',  // Standard results
+      '.tF2Cxc', // Alternative results
+      '[data-header-feature="0"]' // Featured results
+    ];
 
-    for (let i = 0; i < Math.min(MAX_SEARCH_RESULTS, resultDivs.length); i++) {
-      const div = resultDivs[i];
+    for (const selector of selectors) {
+      const elements = document.querySelectorAll(selector);
 
-      // Extract title using h3 selector
-      const titleEl = div.querySelector('h3');
-      const title = titleEl ? titleEl.textContent?.trim() : '';
+      for (const element of elements) {
+        if (results.length >= MAX_SEARCH_RESULTS) break;
 
-      // Extract URL from the main link
-      const linkEl = div.querySelector('a');
-      const url = linkEl ? linkEl.getAttribute('href') : '';
+        // Extract title - try multiple possible selectors
+        const titleEl = element.querySelector('h3') || element.querySelector('.LC20lb');
+        const title = titleEl?.textContent?.trim() || '';
 
-      // Extract description from the snippet div
-      const descEl = div.querySelector('.VwiC3b, .s');  // Google uses multiple classes
-      const description = descEl ? descEl.textContent?.trim() : '';
+        // Extract URL - try both href and data-href attributes
+        const linkEl = element.querySelector('a');
+        const url = linkEl?.getAttribute('href') || linkEl?.getAttribute('data-href') || '';
 
-      // Only add if we have at least a title and URL
-      if (title && url) {
-        results.push({
-          title: title ?? '',
-          url: url ?? '',
-          description: description ?? ''
-        });
+        // Extract description - try multiple possible selectors
+        const descEl = element.querySelector('.VwiC3b, .s, [data-content-feature="1"]');
+        const description = descEl?.textContent?.trim() || '';
+
+        // Only add if we have at least a title and URL
+        if (title && url && !results.some(r => r.url === url)) { // Avoid duplicates
+          results.push({ title, url, description });
+        }
       }
+
+      // If we found enough results, stop trying other selectors
+      if (results.length >= MAX_SEARCH_RESULTS) break;
     }
 
-    // Format and return the results
+    // Format results based on response type
     switch (responseType) {
       case 'json':
         return JSON.stringify(results, null, 2);
+
       case 'html':
         return results.map(result => `
-<div class="search-result">
-  <h3><a href="${result.url}">${result.title}</a></h3>
-  <div class="url">${result.url}</div>
-  <div class="description">${result.description}</div>
-</div>`).join('\n');
+          <div class="search-result">
+            <h3><a href="${result.url}">${result.title}</a></h3>
+            <div class="url">${result.url}</div>
+            <div class="description">${result.description}</div>
+          </div>
+        `).join('\n');
+
       case 'markdown':
-        return results.map((result, index) => `${index + 1}. **${result.title}**
+        return results.map((result, index) => `
+${index + 1}. **${result.title}**
    - URL: ${result.url}
-   - Description: ${result.description}`).join('\n\n');
+   - Description: ${result.description}
+`).join('\n\n');
+
       case 'text':
       default:
-        return results.map((result, index) => `${index + 1}. ${result.title}
+        return results.map((result, index) => `
+${index + 1}. ${result.title}
    URL: ${result.url}
-   Description: ${result.description}`).join('\n\n');
+   Description: ${result.description}
+`).join('\n\n');
     }
   } catch (error) {
-    throw new Error(
-      `Failed to parse Google search results: ${error instanceof Error ? error.message : 'Unknown error'}`
-    );
+    console.error('Error parsing Google results:', error);
+    throw new Error(`Failed to parse Google search results: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 
