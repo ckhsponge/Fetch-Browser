@@ -11,6 +11,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { registerUrlFetcherTool } from "./url-fetcher.js";
+import { registerGoogleSearchTool } from "./google-search.js";
 
 /**
  * Create a new MCP server instance with full capabilities
@@ -26,6 +27,15 @@ const server = new McpServer({
           url: "The URL to fetch",
           responseType: "Expected response type (text, json, html, markdown)",
           timeout: "Request timeout in milliseconds (optional)"
+        }
+      },
+      google_search: {
+        description: "Execute a Google search and return results in various formats",
+        parameters: {
+          query: "The search query to execute",
+          responseType: "Expected response type (text, json, html, markdown)",
+          maxResults: "Maximum number of results to return (optional)",
+          topic: "Type of search to perform (web or news)"
         }
       }
     },
@@ -50,12 +60,13 @@ process.on('uncaughtException', (error: Error) => {
   console.error('Server error:', error);
 });
 
-// Register URL fetcher tool
+// Register tools
 try {
   registerUrlFetcherTool(server);
-  logMessage('info', 'Successfully registered URL fetcher tool');
+  registerGoogleSearchTool(server);
+  logMessage('info', 'Successfully registered tools');
 } catch (error) {
-  logMessage('error', `Failed to register URL fetcher tool: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  logMessage('error', `Failed to register tools: ${error instanceof Error ? error.message : 'Unknown error'}`);
   process.exit(1);
 }
 
