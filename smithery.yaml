@@ -7,34 +7,48 @@ version: "0.1.0"
 startCommand:
   type: stdio
   configSchema:
-    type: object
+    type: "object"
     title: "MCP Server Configuration"
     description: "Configuration options for the MCP server"
     properties:
-      calculator:
-        type: object
-        title: "Calculator Tool"
-        description: "Configuration for the calculator tool"
+      fetchUrl:
+        type: "object"
+        title: "URL Fetcher Tool"
+        description: "Configuration for the URL fetcher tool"
         properties:
           enabled:
-            type: boolean
+            type: "boolean"
             default: true
-            description: "Enable/disable the calculator tool"
-      restApi:
-        type: object
-        title: "REST API Tool"
-        description: "Configuration for the REST API tool"
-        properties:
-          enabled:
-            type: boolean
-            default: true
-            description: "Enable/disable the REST API tool"
+            description: "Enable/disable the URL fetcher tool"
+          maxResponseSize:
+            type: "number"
+            default: 10485760
+            description: "Maximum response size in bytes (10MB)"
+          defaultTimeout:
+            type: "number"
+            default: 30000
+            description: "Default request timeout in milliseconds"
           maxRetries:
-            type: integer
+            type: "number"
             default: 3
             minimum: 1
             maximum: 5
-            description: "Maximum number of retries for API calls"
+            description: "Maximum number of retries for failed requests"
+      googleSearch:
+        type: "object"
+        title: "Google Search Tool"
+        description: "Configuration for the Google search tool"
+        properties:
+          enabled:
+            type: "boolean"
+            default: true
+            description: "Enable/disable the Google search tool"
+          maxResults:
+            type: "number"
+            default: 10
+            minimum: 1
+            maximum: 100
+            description: "Maximum number of search results to return"
     required: []
   commandFunction: |-
     (config) => ({
@@ -42,9 +56,12 @@ startCommand:
       args: ['build/index.js'],
       env: {
         NODE_ENV: 'production',
-        CALCULATOR_ENABLED: config.calculator?.enabled?.toString() || 'true',
-        REST_API_ENABLED: config.restApi?.enabled?.toString() || 'true',
-        REST_API_MAX_RETRIES: config.restApi?.maxRetries?.toString() || '3'
+        FETCH_URL_ENABLED: config.fetchUrl?.enabled?.toString() || 'true',
+        FETCH_URL_MAX_RESPONSE_SIZE: config.fetchUrl?.maxResponseSize?.toString() || '10485760',
+        FETCH_URL_DEFAULT_TIMEOUT: config.fetchUrl?.defaultTimeout?.toString() || '30000',
+        FETCH_URL_MAX_RETRIES: config.fetchUrl?.maxRetries?.toString() || '3',
+        GOOGLE_SEARCH_ENABLED: config.googleSearch?.enabled?.toString() || 'true',
+        GOOGLE_SEARCH_MAX_RESULTS: config.googleSearch?.maxResults?.toString() || '10'
       }
     })
 

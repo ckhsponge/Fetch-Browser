@@ -29,8 +29,14 @@ COPY --from=build /app/package.json /app/package-lock.json /app/
 # Install only production dependencies
 RUN npm install --omit=dev --ignore-scripts
 
-# Make port 8080 available to the world outside this container
-EXPOSE 8080
+# Set executable permissions
+RUN chmod +x build/index.js
+
+# Set production environment
+ENV NODE_ENV=production
+
+# Set the user to non-root for security
+USER node
 
 # Run the server
 ENTRYPOINT ["node", "build/index.js"]
