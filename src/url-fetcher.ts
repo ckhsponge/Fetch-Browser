@@ -14,6 +14,8 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { Window } from "happy-dom";
+import { JSDOM } from "jsdom";
+import { writeFileSync } from "fs";
 
 // Constants
 const MAX_RETRIES = 3;
@@ -22,6 +24,23 @@ const MAX_RESPONSE_SIZE = 10 * 1024 * 1024; // 10MB
 const DEFAULT_TIMEOUT = 30000; // 30 seconds
 const GOOGLE_SEARCH_URL = 'https://www.google.com/search';
 const MAX_SEARCH_RESULTS = 5;
+
+const BROWSER_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+  'Accept-Language': 'en-US,en;q=0.9',
+  'Accept-Encoding': 'gzip, deflate, br',
+  'Cache-Control': 'no-cache',
+  'Pragma': 'no-cache',
+  'Sec-Ch-Ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+  'Sec-Ch-Ua-Mobile': '?0',
+  'Sec-Ch-Ua-Platform': '"macOS"',
+  'Sec-Fetch-Dest': 'document',
+  'Sec-Fetch-Mode': 'navigate',
+  'Sec-Fetch-Site': 'none',
+  'Sec-Fetch-User': '?1',
+  'Upgrade-Insecure-Requests': '1'
+};
 
 // Schema for URL fetcher parameters
 const UrlFetcherSchema = z.object({
@@ -38,6 +57,12 @@ const UrlFetcherSchema = z.object({
     .default(DEFAULT_TIMEOUT)
     .describe("Request timeout in milliseconds")
 });
+
+interface FetchUrlParams {
+  url: URL;
+  responseType?: 'json' | 'markdown';
+  timeout?: number;
+}
 
 /**
  * Helper function for exponential backoff
@@ -57,81 +82,111 @@ function getRetryDelay(attempt: number): number {
  * @param responseType - The desired output format.
  * @returns The results in the chosen format.
  */
-export async function extractGoogleResults(
-  html: string,
-  responseType: 'text' | 'json' | 'html' | 'markdown'
-): Promise<string | object> {
-  try {
-    // Create a new Window with settings that disable JavaScript and CSS file loading
-    const window = new Window({
-      settings: {
-        disableJavaScriptFileLoading: true,
-        disableJavaScriptEvaluation: true,
-        disableCSSFileLoading: true,
-        timer: {
-          maxTimeout: 3000,
-          maxIntervalTime: 3000,
+function extractGoogleResults(html: string, responseType: 'text' | 'json' | 'html' | 'markdown'): string | object[] {
+  const dom = new Window({
+    settings: {
+      disableJavaScriptFileLoading: true,
+      disableJavaScriptEvaluation: true,
+      disableCSSFileLoading: true,
+      timer: {
+        maxTimeout: 3000,
+        maxIntervalTime: 3000,
+      },
+    },
+  });
+
+  const document = dom.document;
+  document.write(html);
+
+  console.log(`Document body length: ${document.body.innerHTML.length}`);
+
+  const results: { title: string; url: string; description?: string }[] = [];
+
+  // Try news results first
+  const newsElements = document.querySelectorAll('[data-news-cluster-id]');
+  console.log(`Found ${newsElements.length} news elements`);
+
+  newsElements.forEach((element, index) => {
+    console.log(`Processing news element ${index + 1}`);
+    const titleEl = element.querySelector('[role="heading"]');
+    const linkEl = element.querySelector('a');
+    const snippetEl = titleEl?.nextElementSibling;
+
+    if (titleEl && linkEl) {
+      const title = titleEl.textContent?.trim();
+      const url = linkEl.getAttribute('href');
+      const description = snippetEl?.textContent?.trim();
+
+      if (title && url) {
+        results.push({ title, url, description });
+      } else {
+        console.log(`Missing title or URL for news element ${index + 1}`);
+      }
+    }
+  });
+
+  // If no news results, try general search results
+  if (results.length === 0) {
+    const generalElements = document.querySelectorAll('.g');
+    console.log(`Found ${generalElements.length} general result elements`);
+
+    generalElements.forEach((element, index) => {
+      console.log(`Processing general element ${index + 1}`);
+      const titleEl = element.querySelector('h3');
+      const linkEl = element.querySelector('a');
+      const snippetEl = element.querySelector('.VwiC3b');
+
+      if (titleEl && linkEl) {
+        const title = titleEl.textContent?.trim();
+        const url = linkEl.getAttribute('href');
+        const description = snippetEl?.textContent?.trim();
+
+        if (title && url) {
+          results.push({ title, url, description });
+        } else {
+          console.log(`Missing title or URL for general element ${index + 1}`);
         }
       }
     });
-    const document = window.document;
-    document.write(html);
-    await window.happyDOM.waitUntilComplete();
+  }
 
-    const results: any[] = [];
+  // If still no results, try alternative selectors
+  if (results.length === 0) {
+    console.log('No results found with primary selectors, trying alternatives...');
+    const alternativeElements = document.querySelectorAll('div.tF2Cxc');
+    alternativeElements.forEach((element, index) => {
+      console.log(`Processing alternative element ${index + 1}`);
+      const titleEl = element.querySelector('h3');
+      const linkEl = element.querySelector('a');
+      const snippetEl = element.querySelector('.VwiC3b');
 
-    // Try to fetch news results if available.
-    const newsElements = document.querySelectorAll("[data-news-cluster-id]");
-    if (newsElements.length > 0) {
-      newsElements.forEach(newsElement => {
-        const linkEl = newsElement.querySelector("a");
-        const url = linkEl?.getAttribute("href");
-        if (!url) return;
+      if (titleEl && linkEl) {
+        const title = titleEl.textContent?.trim();
+        const url = linkEl.getAttribute('href');
+        const description = snippetEl?.textContent?.trim();
 
-        const titleEl = newsElement.querySelector('[role="heading"]');
-        const title = titleEl?.textContent?.trim() || '';
-        if (!title) return;
+        if (title && url) {
+          results.push({ title, url, description });
+        } else {
+          console.log(`Missing title or URL for alternative element ${index + 1}`);
+        }
+      }
+    });
+  }
 
-        const snippetEl = titleEl?.nextElementSibling;
-        const snippet = snippetEl?.textContent?.trim() || '';
+  console.log(`Total results found: ${results.length}`);
+  dom.happyDOM?.close();
 
-        results.push({ url, title, snippet });
-      });
-    } else {
-      // Fallback to general search results.
-      const generalElements = document.querySelectorAll(".g");
-      generalElements.forEach(element => {
-        const titleEl = element.querySelector("h3");
-        const urlEl = element.querySelector("a");
-        if (!titleEl || !urlEl) return;
-
-        const title = titleEl.textContent?.trim() || "";
-        const url = urlEl.getAttribute("href") || "";
-        if (!title || !url) return;
-
-        results.push({ title, url });
-      });
-    }
-
-    await window.happyDOM.close();
-
-    // Return results in the desired format.
-    switch (responseType) {
-      case 'text':
-        return results.map(r => `${r.title} - ${r.url}`).join('\n');
-      case 'json':
-        return results;
-      case 'html':
-        return document.body.innerHTML;
-      case 'markdown':
-        return results
-          .map((r, index) => `${index + 1}. **${r.title}**\n   - URL: ${r.url}\n   - ${r.snippet ? r.snippet : ""}`)
-          .join("\n\n");
-      default:
-        return results;
-    }
-  } catch (error) {
-    throw new Error(`Failed to parse Google search results: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  switch (responseType) {
+    case 'markdown':
+      return results.map(r => `- [${r.title}](${r.url})${r.description ? `\n  ${r.description}` : ''}`).join('\n');
+    case 'html':
+      return results.map(r => `<div class="result"><h3><a href="${r.url}">${r.title}</a></h3>${r.description ? `<p>${r.description}</p>` : ''}</div>`).join('\n');
+    case 'text':
+      return results.map(r => `${r.title}\n${r.url}${r.description ? `\n${r.description}` : ''}`).join('\n\n');
+    case 'json':
+    default:
+      return results;
   }
 }
 
@@ -180,7 +235,8 @@ async function processResponse(response: Response, responseType: 'text' | 'json'
 
   // Special handling for Google search results
   if (url.origin + url.pathname === GOOGLE_SEARCH_URL) {
-    const results = await extractGoogleResults(text, responseType);
+    const mappedType = responseType === 'json' || responseType === 'markdown' ? responseType : 'json';
+    const results = await extractGoogleResults(text, mappedType);
     return typeof results === 'string' ? results : JSON.stringify(results, null, 2);
   }
 
@@ -227,24 +283,10 @@ export function registerUrlFetcherTool(server: McpServer) {
           const controller = new AbortController();
           const timeout = setTimeout(() => controller.abort(), params.timeout);
 
-          // Add special headers for Google search to improve results
-          const headers: Record<string, string> = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-            'Accept': params.responseType === 'json' ? 'application/json' :
-              params.responseType === 'html' ? 'text/html' : 'text/plain',
-            'Accept-Language': 'en-US,en;q=0.9'
-          };
-
-          // If it's a Google search, add specific headers
-          if (params.url.origin + params.url.pathname === GOOGLE_SEARCH_URL) {
-            headers['Accept'] = 'text/html';
-            headers['Cache-Control'] = 'no-cache';
-            headers['Pragma'] = 'no-cache';
-          }
-
           const response = await fetch(params.url.toString(), {
             signal: controller.signal,
-            headers
+            headers: BROWSER_HEADERS,
+            redirect: 'follow'
           });
 
           clearTimeout(timeout);
@@ -327,6 +369,90 @@ export function registerUrlFetcherTool(server: McpServer) {
         }],
         isError: true
       };
+    }
+  );
+}
+
+export async function fetchUrl(url: string, responseType: 'text' | 'json' | 'html' | 'markdown' = 'json'): Promise<string | object[]> {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+
+    const response = await fetch(url, {
+      signal: controller.signal,
+      headers: BROWSER_HEADERS,
+      redirect: 'follow'
+    });
+
+    clearTimeout(timeout);
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const html = await response.text();
+    writeFileSync('fetchedPage.html', html);
+    console.log(`Saved fetched HTML (${html.length} bytes) to fetchedPage.html`);
+
+    if (url.startsWith(GOOGLE_SEARCH_URL)) {
+      return extractGoogleResults(html, responseType);
+    }
+
+    switch (responseType) {
+      case 'markdown':
+        return htmlToMarkdown(html);
+      case 'html':
+        return html;
+      case 'text':
+        return html;
+      case 'json':
+      default:
+        return [{ content: html }];
+    }
+  } catch (error) {
+    if (error instanceof Error) {
+      throw new Error(`Failed to fetch URL: ${error.message}`);
+    }
+    throw error;
+  }
+}
+
+export async function fetchUrlWithParams(params: FetchUrlParams): Promise<string | object[]> {
+  return await z.object({
+    url: z.instanceof(URL),
+    responseType: z.enum(['json', 'markdown']).default('json'),
+    timeout: z.number().min(1000).max(30000).default(5000)
+  }).parseAsync(params).then(
+    async (params) => {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), params.timeout);
+
+        const response = await fetch(params.url.toString(), {
+          signal: controller.signal,
+          headers: BROWSER_HEADERS,
+          redirect: 'follow'
+        });
+
+        clearTimeout(timeout);
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const html = await response.text();
+
+        if (params.url.origin + params.url.pathname === GOOGLE_SEARCH_URL) {
+          return extractGoogleResults(html, params.responseType);
+        }
+
+        return params.responseType === 'markdown' ? html : [{ content: html }];
+      } catch (error) {
+        if (error instanceof Error) {
+          throw new Error(`Failed to fetch URL: ${error.message}`);
+        }
+        throw error;
+      }
     }
   );
 }
