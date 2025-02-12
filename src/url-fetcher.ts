@@ -77,67 +77,38 @@ function extractGoogleResults(html: string, responseType: 'text' | 'json' | 'htm
       // Only add if we have at least a title and URL
       if (title && url) {
         results.push({
-          title: title || 'No title',
-          url: url || '',
-          description: description || 'No description'
+          title: title ?? '',
+          url: url ?? '',
+          description: description ?? ''
         });
       }
     }
 
-    // If no results found, try alternative selectors
-    if (results.length === 0) {
-      const altResultDivs = doc.querySelectorAll('.tF2Cxc');
-      for (let i = 0; i < Math.min(MAX_SEARCH_RESULTS, altResultDivs.length); i++) {
-        const div = altResultDivs[i];
-        const titleEl = div.querySelector('h3');
-        const linkEl = div.querySelector('a');
-        const descEl = div.querySelector('.VwiC3b, .s');
-
-        const title = titleEl ? titleEl.textContent?.trim() : '';
-        const url = linkEl ? linkEl.getAttribute('href') : '';
-        const description = descEl ? descEl.textContent?.trim() : '';
-
-        if (title && url) {
-          results.push({
-            title: title || 'No title',
-            url: url || '',
-            description: description || 'No description'
-          });
-        }
-      }
-    }
-
-    // Format results based on response type
+    // Format and return the results
     switch (responseType) {
       case 'json':
         return JSON.stringify(results, null, 2);
-
       case 'html':
         return results.map(result => `
-          <div class="search-result">
-            <h3><a href="${result.url}">${result.title}</a></h3>
-            <div class="url">${result.url}</div>
-            <div class="description">${result.description}</div>
-          </div>
-        `).join('\n');
-
+<div class="search-result">
+  <h3><a href="${result.url}">${result.title}</a></h3>
+  <div class="url">${result.url}</div>
+  <div class="description">${result.description}</div>
+</div>`).join('\n');
       case 'markdown':
-        return results.map((result, index) => `
-${index + 1}. **${result.title}**
+        return results.map((result, index) => `${index + 1}. **${result.title}**
    - URL: ${result.url}
-   - Description: ${result.description}
-`).join('\n');
-
+   - Description: ${result.description}`).join('\n\n');
       case 'text':
       default:
-        return results.map((result, index) => `
-${index + 1}. ${result.title}
+        return results.map((result, index) => `${index + 1}. ${result.title}
    URL: ${result.url}
-   Description: ${result.description}
-`).join('\n');
+   Description: ${result.description}`).join('\n\n');
     }
   } catch (error) {
-    throw new Error(`Failed to parse Google search results: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    throw new Error(
+      `Failed to parse Google search results: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
   }
 }
 

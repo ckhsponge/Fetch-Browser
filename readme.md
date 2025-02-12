@@ -618,6 +618,7 @@ Fetch Browser is a specialized Model Context Protocol (MCP) server that acts as 
   - Get the first 5 results with titles, URLs, and descriptions
   - Format results in HTML, JSON, Markdown, or plain text
   - Proper headers and retry logic for reliable results
+  - Modern selector support for accurate extraction
 
 - **Format Conversion**:
   - Convert HTML to clean Markdown
@@ -718,8 +719,7 @@ When fetching from Google search, results are automatically parsed and formatted
     "title": "First Result Title",
     "url": "https://example.com",
     "description": "Description of the first result"
-  },
-  ...
+  }
 ]
 ```
 
@@ -732,6 +732,22 @@ When fetching from Google search, results are automatically parsed and formatted
 2. **Second Result Title**
    - URL: https://example2.com
    - Description: Description of the second result
+```
+
+3. **HTML Format**:
+```html
+<div class="search-result">
+  <h3><a href="https://example.com">First Result Title</a></h3>
+  <div class="url">https://example.com</div>
+  <div class="description">Description of the first result</div>
+</div>
+```
+
+4. **Text Format**:
+```text
+1. First Result Title
+   URL: https://example.com
+   Description: Description of the first result
 ```
 
 ## Development
@@ -764,29 +780,7 @@ The server can be configured through environment variables or the `package.json`
 - `MAX_RETRIES`: Number of retry attempts (default: 3)
 - `MAX_RESPONSE_SIZE`: Maximum response size in bytes (default: 10MB)
 - `DEFAULT_TIMEOUT`: Request timeout in milliseconds (default: 30000)
-
-## Integration
-
-### Claude Desktop
-
-1. Add to your `claude_desktop_config.json`:
-```json
-{
-  "mcpServers": {
-    "fetch-browser": {
-      "command": "npx",
-      "args": ["-y", "@TheSethRose/fetch-browser"]
-    }
-  }
-}
-```
-
-### Cursor
-
-1. Go to Settings > Features > MCP
-2. Add new MCP server
-3. Set transport type to "stdio"
-4. Set command to: `npx -y @TheSethRose/fetch-browser`
+- `MAX_SEARCH_RESULTS`: Maximum number of Google search results (default: 5)
 
 ## Security
 
