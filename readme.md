@@ -1,693 +1,106 @@
-## What is MCP?
-
-[![smithery badge](https://smithery.ai/badge/@TheSethRose/mcp-server-starter)](https://smithery.ai/server/@TheSethRose/mcp-server-starter)
-
-The Model Context Protocol (MCP) is a specialized framework designed to streamline the process of enabling AI agents to interact with a wide array of tools. This starter template helps you quickly build a Model Context Protocol (MCP) server using TypeScript. It provides a robust foundation that you can easily extend to create advanced MCP tools and seamlessly integrate them with various AI platforms.
-
-## Core Components
-
-- **MCP Servers**: These servers act as bridges, exposing APIs, databases, and code libraries to external AI hosts. By implementing an MCP server in TypeScript, developers can share data sources or computational logic in a standardized way using JSON-RPC 2.0.
-- **MCP Clients**: These are the consumer-facing side of MCP, communicating with servers to query data or perform actions. MCP clients use TypeScript SDKs, ensuring type-safe interactions and uniform approach to tool usage.
-- **MCP Hosts**: Systems such as Claude, Cursor, Windsurf, Cline, and other TypeScript-based platforms coordinate requests between servers and clients, ensuring seamless data flow. A single MCP server can thus be accessed by multiple AI hosts without custom integrations.
-
-## TypeScript Implementation
-
-The MCP TypeScript SDK provides core classes for building servers:
-
-```typescript
-import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-
-const server = new Server({
-  name: "mcp-server-starter",
-  version: "1.0.0",
-  capabilities: {
-    tools: {},      // Enable tools capability
-    resources: {},  // Enable resource access
-    prompts: {},    // Enable prompt handling
-    streaming: true // Enable streaming responses
-  }
-});
-
-// Connect transport
-const transport = new StdioServerTransport();
-await server.connect(transport);
-```
-
-By using MCP, developers no longer need complex custom code to integrate new tools or services. Instead, they build an MCP server and make it available to supported hosts.
-
-## Prerequisites
-
-- **Node.js (v18 or later)**: A modern version of Node.js that takes advantage of the latest JavaScript features and performance improvements.
-- **npm (v7 or later)**: Ensures compatibility for installing and managing packages.
-- **VS Code with Dev Containers extension**: Allows you to quickly spin up a reproducible development environment, making collaboration easier and more efficient.
-
-## Project Structure
-
-A typical file layout for the MCP server template may look like this:
-
-```
-mcp-server/
-├── .devcontainer/        # Dev container configuration
-│   └── devcontainer.json
-├── src/
-│   ├── index.ts         # MCP Server main entry point
-│   └── examples/        # Example tool implementations
-│       ├── calculator.ts # Calculator tool example
-│       └── rest-api.ts  # REST API tool example
-├── package.json         # Project configuration
-└── tsconfig.json        # TypeScript configuration
-```
-
-The `.devcontainer` directory streamlines container-based development, while the `src/` folder houses the main server logic and examples of custom tools. This structure keeps your project organized and easy to navigate.
-
-## Quick Start
-
-### Installing via Smithery
-
-To install MCP Server Starter for any supported client:
-
-```bash
-# For Claude
-npx -y @smithery/cli install @TheSethRose/mcp-server-starter --client claude
-
-# For Cursor
-npx -y @smithery/cli install @TheSethRose/mcp-server-starter --client cursor
-
-# For Windsurf
-npx -y @smithery/cli install @TheSethRose/mcp-server-starter --client windsurf
-
-# For Cline
-npx -y @smithery/cli install @TheSethRose/mcp-server-starter --client cline
-
-# For TypeScript
-npx -y @smithery/cli install @TheSethRose/mcp-server-starter --client typescript
-```
-
-1. **Clone this template**: Retrieve the repository files from your preferred source.
-2. **Open in VS Code with Dev Containers**: If you have the Dev Containers extension installed, you will be prompted to open this project inside a container.
-3. **Install dependencies**:
-   ```bash
-   npm install
-   ```
-   This command fetches and installs all required packages for the MCP server.
-4. **Build the project**:
-   ```bash
-   npm run build
-   ```
-   This compiles your TypeScript code into JavaScript, preparing it for runtime.
-
-## Development Scripts
-
-- **Build the project**:
-  ```bash
-  npm run build
-  ```
-  Compiles your TypeScript source and sets file permissions for the main entry point.
-
-- **Watch mode**:
-  ```bash
-  npm run watch
-  ```
-  Automatically recompiles TypeScript files whenever changes are made, ideal for active development.
-
-- **Run with inspector**:
-  ```bash
-  npm run inspector
-  ```
-  Launches the server alongside a debugging tool, enabling you to trace issues, set breakpoints, and inspect variables in real time.
-
-## Tool Response Format
-
-MCP tools must return responses in a specific format to ensure proper communication with AI hosts. Here's the structure:
-
-```typescript
-interface ToolResponse {
-  content: ContentItem[];
-  isError?: boolean;
-  metadata?: Record<string, unknown>;
-}
-
-interface ContentItem {
-  type: string;
-  text?: string;
-  mimeType?: string;
-  data?: unknown;
-}
-```
-
-Supported content types include:
-- `text`: Plain text content
-- `code`: Code snippets with optional language specification
-- `image`: Base64-encoded images with MIME type
-- `file`: File content with MIME type
-- `error`: Error messages (when `isError` is true)
-
-Example response:
-```typescript
-return {
-  content: [
-    {
-      type: "text",
-      text: "Operation completed successfully"
-    },
-    {
-      type: "code",
-      text: "console.log('Hello, World!')",
-      mimeType: "application/javascript"
-    }
-  ]
-};
-```
-
-## Security Best Practices
-
-When developing MCP tools, follow these security guidelines:
-
-1. **Input Validation**:
-   - Always validate input parameters using Zod schemas
-   - Implement strict type checking
-   - Sanitize user inputs before processing
-   - Use the `strict()` option in schemas to prevent extra properties
-
-2. **Error Handling**:
-   - Never expose internal error details to clients
-   - Implement proper error boundaries
-   - Log errors securely
-   - Return user-friendly error messages
-
-3. **Resource Management**:
-   - Implement proper cleanup procedures
-   - Handle process termination signals
-   - Close connections and free resources
-   - Implement timeouts for long-running operations
-
-4. **API Security**:
-   - Use secure transport protocols
-   - Implement rate limiting
-   - Store sensitive data securely
-   - Use environment variables for configuration
-
-Example secure tool implementation:
-```typescript
-const SecureSchema = z.object({
-  input: z.string()
-    .min(1)
-    .max(1000)
-    .transform(str => str.trim())
-    .pipe(z.string().regex(/^[a-zA-Z0-9\s]+$/))
-});
-
-server.tool(
-  "secure_tool",
-  SecureSchema.shape,
-  async (params) => {
-    try {
-      // Implement rate limiting
-      await rateLimiter.checkLimit();
-
-      // Process validated input
-      const result = await processSecurely(params.input);
-
-      return {
-        content: [{
-          type: "text",
-          text: result
-        }]
-      };
-    } catch (error) {
-      // Log error internally
-      logger.error(error);
-
-      // Return safe error message
-      return {
-        content: [{
-          type: "text",
-          text: "An error occurred processing your request"
-        }],
-        isError: true
-      };
-    }
-  }
-);
-```
-
-## Advanced Features
-
-### Streaming Responses
-
-MCP supports streaming responses for long-running operations:
-
-```typescript
-server.tool(
-  "stream_data",
-  StreamSchema.shape,
-  async function* (params) {
-    for (const chunk of dataStream) {
-      yield {
-        content: [{
-          type: "text",
-          text: chunk
-        }]
-      };
-    }
-  }
-);
-```
-
-### Custom Content Types
-
-You can define custom content types for specialized data:
-
-```typescript
-interface CustomContent extends ContentItem {
-  type: "custom";
-  data: {
-    format: string;
-    value: unknown;
-  };
-}
-```
-
-### Async Tool Execution
-
-Implement proper async handling:
-
-```typescript
-server.tool(
-  "async_operation",
-  AsyncSchema.shape,
-  async (params) => {
-    const operation = await startAsyncOperation();
-
-    while (!operation.isComplete()) {
-      await operation.wait();
-    }
-
-    return {
-      content: [{
-        type: "text",
-        text: await operation.getResult()
-      }]
-    };
-  }
-);
-```
-
-## Testing & Debugging
-
-### Unit Testing
-
-Use Jest for testing your tools:
-
-```typescript
-describe('Calculator Tool', () => {
-  let server: McpServer;
-
-  beforeEach(() => {
-    server = new McpServer({
-      name: "test-server",
-      version: "1.0.0"
-    });
-    registerCalculatorTool(server);
-  });
-
-  test('adds numbers correctly', async () => {
-    const result = await server.executeTool('calculate', {
-      a: 5,
-      b: 3,
-      operation: 'add'
-    });
-
-    expect(result.content[0].text).toBe('8');
-  });
-});
-```
-
-### Debugging Tools
-
-1. **MCP Inspector**:
-   ```bash
-   npm run inspector
-   ```
-   Provides real-time inspection of:
-   - Tool registration
-   - Request/response flow
-   - Error handling
-   - Performance metrics
-
-2. **Logging**:
-   ```typescript
-   function logMessage(level: 'info' | 'warn' | 'error', message: string) {
-     console.error(`[${level.toUpperCase()}] ${message}`);
-   }
-   ```
-
-3. **Error Tracking**:
-   ```typescript
-   process.on('uncaughtException', (error: Error) => {
-     logMessage('error', `Uncaught error: ${error.message}`);
-     // Implement error reporting
-   });
-   ```
-
-## Transport Configuration
-
-MCP supports multiple transport protocols:
-
-### stdio Transport
-
-```typescript
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-
-const transport = new StdioServerTransport();
-await server.connect(transport);
-```
-
-### WebSocket Transport
-
-```typescript
-import { WebSocketServerTransport } from "@modelcontextprotocol/sdk/server/websocket.js";
-
-const transport = new WebSocketServerTransport({
-  port: 3000
-});
-await server.connect(transport);
-```
-
-### Custom Transport
-
-```typescript
-import { Transport } from "@modelcontextprotocol/sdk/server/transport.js";
-
-class CustomTransport implements Transport {
-  // Implement transport methods
-}
-```
-
-## Server Capabilities
-
-Configure server capabilities:
-
-```typescript
-const server = new McpServer({
-  name: "mcp-server",
-  version: "1.0.0",
-  capabilities: {
-    tools: {}, // Enable tools capability
-    streaming: true, // Enable streaming support
-    customContent: ["myFormat"], // Define custom content types
-    metadata: true // Enable metadata support
-  }
-});
-```
-
-## Integration with MCP Hosts
-
-### Multi-Client Support
-
-This MCP server template supports multiple AI platforms out of the box:
-
-1. **Claude Desktop**:
-   - Provides a chat-based environment
-   - Supports all MCP capabilities
-   - Ideal for conversational AI interactions
-
-2. **Cursor**:
-   - AI-powered development environment
-   - Full tool integration support
-   - Perfect for coding assistance
-
-3. **Windsurf**:
-   - Modern AI development platform
-   - Complete MCP protocol support
-   - Streamlined workflow integration
-
-4. **Cline**:
-   - Command-line AI interface
-   - Tool-focused interactions
-   - Efficient terminal-based usage
-
-5. **TypeScript**:
-   - Native TypeScript support
-   - Type-safe tool development
-   - Seamless SDK integration
-
-Each client can be configured using the appropriate Smithery CLI command:
-
-```bash
-npx -y @smithery/cli run @TheSethRose/mcp-server-starter --client [client-name]
-```
-
-Replace `[client-name]` with one of: `claude`, `cursor`, `windsurf`, `cline`, or `typescript`.
-
-### Smithery Integration
-
-A convenient way to run this MCP server is through Smithery, a centralized platform for discovering and publishing MCP servers. Smithery simplifies deployment and ensures your server can be integrated into various AI workflows.
-
-#### Quick Run
-
-You can immediately execute this server via the Smithery CLI:
-
-```bash
-npx -y @smithery/cli@latest run mcp-server-template --config "{}"
-```
-
-Smithery automatically fetches, installs, and runs the server from its latest release, requiring minimal setup from you.
-
-#### Publishing Your Own Version
-
-If you have developed new tools or made local modifications and wish to share them, consider publishing your customized server:
-
-1. Create an account on [Smithery](https://smithery.ai).
-2. Follow their deployment instructions to bundle and publish your MCP server.
-3. Other users can then run your server through Smithery by referencing your unique package name.
-
-Smithery offers:
-- A centralized registry to discover and share MCP servers.
-- Simplified deployment, removing repetitive setup.
-- A community-driven approach where developers contribute diverse tools.
-- Easy integration with popular AI hosts.
-
-For additional guidance:
-- [Smithery Documentation](https://smithery.ai/docs)
-- [Smithery GitHub](https://github.com/smithery-ai)
-
-### Cursor Integration
-
-Cursor is another AI development environment that supports MCP. To incorporate your server into Cursor:
-
-1. **Build your server**:
-   ```bash
-   npm run build
-   ```
-   Ensure an executable `index.js` is generated in the `build` directory.
-
-2. **In Cursor, go to** `Settings` > `Features` > `MCP`:
-   Add a new MCP server.
-
-3. **Register your server**:
-   - Select `stdio` as the transport type.
-   - Provide a descriptive `Name`.
-   - Set the command, for example: `node /path/to/your/mcp-server/build/index.js`.
-
-4. **Save** your configuration.
-
-Cursor then detects and lists your tools. During AI-assisted coding sessions or prompt-based interactions, it will call your MCP tools whenever relevant. You can also instruct the AI to use a specific tool by name.
-
-### Claude Desktop Integration
-
-Claude Desktop provides a chat-based environment where you can leverage MCP tools. To include your server:
-
-1. **Build your server**:
-   ```bash
-   npm run build
-   ```
-   Confirm that no errors occur and that the main script is generated in `build`.
-
-2. **Modify** `claude_desktop_config.json`:
-   ```json
-   {
-     "mcpServers": {
-       "mcp-server": {
-         "command": "node",
-         "args": [
-           "/path/to/your/mcp-server/build/index.js"
-         ]
-       }
-     }
-   }
-   ```
-   Provide the path to your compiled main file along with any additional arguments.
-
-3. **Restart Claude Desktop** to load the new configuration.
-
-When you interact with Claude Desktop, it can now invoke the MCP tools you have registered. If a user's request aligns with any of your tool's functionality, Claude will prompt to use that tool.
-
-## Development Best Practices
-
-1. **Use TypeScript** for better type checking, clearer code organization, and easier maintenance over time.
-2. **Adopt consistent patterns** for implementing tools:
-   - Keep each tool in its own file
-   - Use descriptive schemas with proper documentation
-   - Implement comprehensive error handling
-   - Return properly formatted content
-3. **Include thorough documentation**:
-   - Add JSDoc comments to explain functionality
-   - Document parameters and return types
-   - Include examples where helpful
-4. **Leverage the inspector** for debugging:
-   ```bash
-   npm run inspector
-   ```
-   This helps you:
-   - Test tool functionality
-   - Debug request/response flow
-   - Verify schema validation
-   - Check error handling
-5. **Test comprehensively** before deployment:
-   - Verify input validation
-   - Test error scenarios
-   - Check response formatting
-   - Ensure proper integration with hosts
-6. **Follow MCP best practices**:
-   - Use proper content types
-   - Implement proper error handling
-   - Validate all inputs and outputs
-   - Handle network requests safely
-   - Format responses consistently
-
-## Learn More
-
-For further information on the MCP ecosystem, refer to:
-
-- [Model Context Protocol Documentation](https://modelcontextprotocol.io): Detailed coverage of MCP architecture, design principles, and more advanced usage examples.
-- [Smithery - MCP Server Registry](https://smithery.ai/docs): Guidelines for publishing your tools to Smithery and best practices for their registry.
-- [MCP TypeScript SDK Documentation](https://modelcontextprotocol.io/typescript): Comprehensive documentation of the TypeScript SDK.
-- [MCP Security Guidelines](https://modelcontextprotocol.io/security): Detailed security best practices and recommendations.
-
-## Conclusion
-
-By following this template and best practices, you can quickly build a robust MCP server that opens your tools to a broad range of AI hosts. This expanded approach ensures easier maintenance, better type safety, and a smooth user experience when harnessing the capabilities of modern AI systems.
-
-## Credits
-
-**Template created by Seth Rose**:
-- **Website**: [https://www.sethrose.dev](https://www.sethrose.dev)
-- **𝕏 (Twitter)**: [https://x.com/TheSethRose](https://x.com/TheSethRose)
-- **🦋 (Bluesky)**: [https://bsky.app/profile/sethrose.dev](https://bsky.app/profile/sethrose.dev)
-
-## Best Practices
-
-1. **Type Safety**:
-   - Leverage TypeScript's type system for robust tool definitions
-   - Use Zod schemas for runtime validation
-   - Define clear interfaces for tool parameters and responses
-
-2. **Transport Selection**:
-   - Use `StdioServerTransport` for local process communication
-   - Implement `WebSocketServerTransport` for network-based tools
-   - Consider custom transports for specific use cases
-
-3. **Capability Management**:
-   - Clearly define server capabilities during initialization
-   - Implement proper capability negotiation
-   - Handle capability-specific errors gracefully
-
-4. **Security Considerations**:
-   - Implement user consent flows for sensitive operations
-   - Validate all inputs using TypeScript types and Zod schemas
-   - Handle errors securely without exposing internal details
-
 # Fetch Browser
 
-[![smithery badge](https://smithery.ai/badge/@TheSethRose/fetch-browser)](https://smithery.ai/server/@TheSethRose/fetch-browser)
-
-Fetch Browser is a specialized Model Context Protocol (MCP) server that acts as a browser, allowing AI agents to fetch and process web content in various formats. It features smart handling of Google search results and supports multiple output formats.
+A powerful headless browser MCP server that enables AI agents to fetch web content and perform Google searches without requiring any API keys. Built with modern web standards and designed for seamless integration with AI platforms.
 
 ## Features
 
-- **Universal Web Content Fetching**:
-  - Fetch any webpage or API endpoint
-  - Support for HTML, JSON, Text, and Markdown responses
-  - Automatic content type detection and conversion
-  - Response size limits and timeout protection
-
+- **No API Keys Required**: Uses a sophisticated headless browser approach to fetch content directly
 - **Smart Google Search**:
   - Extract structured results from Google searches
-  - Get the first 5 results with titles, URLs, and descriptions
-  - Format results in HTML, JSON, Markdown, or plain text
-  - Proper headers and retry logic for reliable results
-  - Modern selector support for accurate extraction
+  - Support for both web and news results
+  - Configurable number of results (1-100)
+  - Full content fetching of search results
+  - Automatic retry and error handling
+
+- **Universal Content Fetching**:
+  - Support for any webpage or API endpoint
+  - Multiple output formats (HTML, JSON, Text, Markdown)
+  - Automatic content type detection
+  - Response size limits and timeout protection
+  - Rate limiting protection
 
 - **Format Conversion**:
-  - Convert HTML to clean Markdown
-  - Pretty-print JSON responses
-  - Preserve original formatting when appropriate
-  - Wrap plain text in code blocks for markdown
+  - Clean HTML to Markdown conversion
+  - Pretty-printed JSON responses
+  - Structured HTML output
+  - Plain text with proper formatting
 
-- **Robust Error Handling**:
-  - Automatic retries with exponential backoff
-  - Rate limiting protection
-  - Timeout handling
-  - Detailed error messages
+## Tools
 
-## Usage
+### 1. Google Search Tool (`google_search`)
+Executes Google searches and fetches full content of results:
 
-### Installation
-
-```bash
-# Install via Smithery for your preferred client
-npx -y @smithery/cli install @TheSethRose/fetch-browser --client [client-name]
-
-# Or install directly
-npm install fetch-browser
+```typescript
+{
+  query: "your search query",
+  responseType: "markdown", // or "json", "html", "text"
+  maxResults: 10,          // 1-100 results
+  topic: "web"            // or "news"
+}
 ```
 
-### Basic Examples
+### 2. URL Fetcher Tool (`fetch_url`)
+Fetches content from any URL:
 
-1. **Fetch a webpage as Markdown**:
 ```typescript
 {
   url: "https://example.com",
-  responseType: "markdown"
+  responseType: "markdown", // or "json", "html", "text"
+  timeout: 30000          // optional, in milliseconds
 }
 ```
 
-2. **Get Google search results**:
-```typescript
-{
-  url: "https://www.google.com/search?q=your+search+query",
-  responseType: "json"  // or "markdown", "html", "text"
-}
+## Installation
+
+### Via Smithery
+```bash
+# For Claude
+npx -y @smithery/cli install @TheSethRose/fetch-browser --client claude
+
+# For Cursor
+npx -y @smithery/cli install @TheSethRose/fetch-browser --client cursor
+
+# For TypeScript
+npx -y @smithery/cli install @TheSethRose/fetch-browser --client typescript
 ```
 
-3. **Fetch JSON API data**:
-```typescript
-{
-  url: "https://api.example.com/data",
-  responseType: "json"
-}
+### Manual Installation
+```bash
+# Clone the repository
+git clone https://github.com/TheSethRose/fetch-browser.git
+cd fetch-browser
+
+# Install dependencies
+npm install
+
+# Build the project
+npm run build
+
+# Start the server
+npm start
 ```
 
-### Response Formats
+## Development
 
-The server supports multiple response formats:
+```bash
+# Watch mode with auto-rebuild
+npm run watch
 
-1. **JSON** (`responseType: "json"`):
-```json
-{
-  "content": [{
-    "type": "text",
-    "text": "{\n  \"key\": \"value\"\n}",
-    "mimeType": "application/json"
-  }]
-}
+# Run with inspector
+npm run inspector
+
+# Debug mode
+npm run debug
+
+# Debug with watch mode
+npm run debug:watch
 ```
 
-2. **Markdown** (`responseType: "markdown"`):
+## Response Formats
+
+### 1. Markdown Format
 ```markdown
-# Page Title
+## [Page Title](https://example.com)
 
 Content converted to clean markdown with:
 - Lists
@@ -696,99 +109,48 @@ Content converted to clean markdown with:
 - [Links](https://example.com)
 ```
 
-3. **HTML** (`responseType: "html"`):
-```html
-<div class="content">
-  Original HTML content
-</div>
-```
-
-4. **Text** (`responseType: "text"`):
-```text
-Plain text content with preserved formatting
-```
-
-### Google Search Results
-
-When fetching from Google search, results are automatically parsed and formatted according to the requested response type:
-
-1. **JSON Format**:
+### 2. JSON Format
 ```json
-[
-  {
-    "title": "First Result Title",
-    "url": "https://example.com",
-    "description": "Description of the first result"
-  }
-]
+{
+  "url": "https://example.com",
+  "content": "Extracted content...",
+  "error": null
+}
 ```
 
-2. **Markdown Format**:
-```markdown
-1. **First Result Title**
-   - URL: https://example.com
-   - Description: Description of the first result
-
-2. **Second Result Title**
-   - URL: https://example2.com
-   - Description: Description of the second result
-```
-
-3. **HTML Format**:
+### 3. HTML Format
 ```html
 <div class="search-result">
-  <h3><a href="https://example.com">First Result Title</a></h3>
-  <div class="url">https://example.com</div>
-  <div class="description">Description of the first result</div>
+  <h2><a href="https://example.com">Page Title</a></h2>
+  <div class="content">
+    Original HTML content
+  </div>
 </div>
 ```
 
-4. **Text Format**:
+### 4. Text Format
 ```text
-1. First Result Title
-   URL: https://example.com
-   Description: Description of the first result
+### https://example.com
+
+Plain text content with preserved formatting
+==========
 ```
 
-## Development
+## Error Handling
 
-1. Clone the repository:
-```bash
-git clone https://github.com/yourusername/fetch-browser.git
-cd fetch-browser
-```
+- Automatic retries with exponential backoff
+- Rate limiting protection
+- Timeout handling
+- Detailed error messages
+- Individual result error tracking
 
-2. Install dependencies:
-```bash
-npm install
-```
+## Security Features
 
-3. Build the project:
-```bash
-npm run build
-```
-
-4. Run in development mode:
-```bash
-npm run dev
-```
-
-## Configuration
-
-The server can be configured through environment variables or the `package.json` file:
-
-- `MAX_RETRIES`: Number of retry attempts (default: 3)
-- `MAX_RESPONSE_SIZE`: Maximum response size in bytes (default: 10MB)
-- `DEFAULT_TIMEOUT`: Request timeout in milliseconds (default: 30000)
-- `MAX_SEARCH_RESULTS`: Maximum number of Google search results (default: 5)
-
-## Security
-
-- All URLs are validated before fetching
-- Response size limits prevent memory issues
-- Timeouts prevent hanging requests
-- Rate limiting protection included
-- No sensitive data exposure in errors
+- Response size limits
+- Request timeouts
+- Rate limiting protection
+- No API keys or secrets required
+- Proper error handling
 
 ## Credits
 
