@@ -45,6 +45,20 @@ function buildGoogleSearchUrl(options: {
 }
 
 /**
+ * Extract URLs from search results
+ */
+async function extractSearchUrls(searchResults: string | object[]): Promise<string[]> {
+  if (typeof searchResults === 'string') {
+    // Parse markdown links
+    const urlMatches = searchResults.matchAll(/\[.*?\]\((.*?)\)/g);
+    return Array.from(urlMatches).map(match => match[1]);
+  } else {
+    // Extract URLs from JSON results
+    return (searchResults as any[]).map(result => result.url);
+  }
+}
+
+/**
  * Register the Google search tool with the MCP server
  */
 export function registerGoogleSearchTool(server: McpServer) {
@@ -54,18 +68,71 @@ export function registerGoogleSearchTool(server: McpServer) {
     GoogleSearchSchema.shape,
     async (params) => {
       try {
-        const url = buildGoogleSearchUrl({
+        // First, get the search results
+        const searchUrl = buildGoogleSearchUrl({
           query: params.query,
           maxResults: params.maxResults,
           topic: params.topic
         });
 
-        const results = await fetchUrl(url, params.responseType);
+        // Get search results in JSON format to extract URLs
+        const searchResults = await fetchUrl(searchUrl, 'json');
+        const urls = await extractSearchUrls(searchResults);
+
+        // Now fetch the full content of each URL
+        const fullResults = await Promise.all(
+          urls.map(async (url) => {
+            try {
+              const content = await fetchUrl(url, params.responseType);
+              return {
+                url,
+                content,
+                error: null
+              };
+            } catch (error) {
+              return {
+                url,
+                content: null,
+                error: error instanceof Error ? error.message : 'Unknown error'
+              };
+            }
+          })
+        );
+
+        // Format the results based on response type
+        let formattedResults;
+        switch (params.responseType) {
+          case 'markdown':
+            formattedResults = fullResults
+              .map(r => r.error
+                ? `## [Failed to fetch: ${r.url}]\nError: ${r.error}`
+                : `## [${r.url}]\n\n${r.content}`)
+              .join('\n\n---\n\n');
+            break;
+          case 'html':
+            formattedResults = fullResults
+              .map(r => r.error
+                ? `<div class="search-result error"><h2><a href="${r.url}">Failed to fetch</a></h2><p class="error">${r.error}</p></div>`
+                : `<div class="search-result"><h2><a href="${r.url}">${r.url}</a></h2>${r.content}</div>`)
+              .join('\n');
+            break;
+          case 'text':
+            formattedResults = fullResults
+              .map(r => r.error
+                ? `### ${r.url}\nError: ${r.error}`
+                : `### ${r.url}\n\n${r.content}`)
+              .join('\n\n==========\n\n');
+            break;
+          case 'json':
+          default:
+            formattedResults = JSON.stringify(fullResults, null, 2);
+            break;
+        }
 
         return {
           content: [{
             type: "text",
-            text: typeof results === 'string' ? results : JSON.stringify(results, null, 2),
+            text: formattedResults,
             mimeType: params.responseType === 'json' ? 'application/json' :
               params.responseType === 'markdown' ? 'text/markdown' :
                 params.responseType === 'html' ? 'text/html' : 'text/plain'
@@ -74,7 +141,9 @@ export function registerGoogleSearchTool(server: McpServer) {
             query: params.query,
             topic: params.topic,
             maxResults: params.maxResults,
-            responseType: params.responseType
+            responseType: params.responseType,
+            resultsCount: fullResults.length,
+            successCount: fullResults.filter(r => !r.error).length
           }
         };
       } catch (error) {
