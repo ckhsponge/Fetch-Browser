@@ -47,84 +47,83 @@ function getRetryDelay(attempt: number): number {
 }
 
 /**
- * Extract search results from Google HTML
+ * Extract Google search results from HTML.
+ *
+ * Depending on the content, it looks for a news structure (using the
+ * [data-news-cluster-id] attribute) or falls back to general result elements (using the
+ * ".g" selector). This mimics the extraction logic seen in the local-web-search repo.
+ *
+ * @param html - The HTML string to parse.
+ * @param responseType - The desired output format.
+ * @returns The results in the chosen format.
  */
-function extractGoogleResults(html: string, responseType: 'text' | 'json' | 'html' | 'markdown'): string {
+export function extractGoogleResults(
+  html: string,
+  responseType: 'text' | 'json' | 'html' | 'markdown'
+): string | object {
   try {
-    // Create a virtual DOM using happy-dom
-    const window = new Window();
-    const document = window.document;
-    document.write(html);
+    const window = new Window()
+    const document = window.document
 
-    const results: { title: string; url: string; description: string }[] = [];
+    // Write the HTML and immediately close the document to complete parsing.
+    document.write(html)
+    document.close()
 
-    // Try multiple selectors for Google search results
-    const selectors = [
-      'div.g',  // Standard results
-      '.tF2Cxc', // Alternative results
-      '[data-header-feature="0"]' // Featured results
-    ];
+    const results: any[] = []
 
-    for (const selector of selectors) {
-      const elements = document.querySelectorAll(selector);
+    // Try to fetch news results if available.
+    const newsElements = document.querySelectorAll("[data-news-cluster-id]")
+    if (newsElements.length > 0) {
+      newsElements.forEach((newsElement) => {
+        const linkEl = newsElement.querySelector("a")
+        const url = linkEl?.getAttribute("href")
+        if (!url) return
 
-      for (const element of elements) {
-        if (results.length >= MAX_SEARCH_RESULTS) break;
+        const titleEl = newsElement.querySelector('[role="heading"]')
+        const title = titleEl?.textContent?.trim() || ''
+        if (!title) return
 
-        // Extract title - try multiple possible selectors
-        const titleEl = element.querySelector('h3') || element.querySelector('.LC20lb');
-        const title = titleEl?.textContent?.trim() || '';
+        const snippetEl = titleEl?.nextElementSibling
+        const snippet = snippetEl?.textContent?.trim() || ''
 
-        // Extract URL - try both href and data-href attributes
-        const linkEl = element.querySelector('a');
-        const url = linkEl?.getAttribute('href') || linkEl?.getAttribute('data-href') || '';
+        results.push({ url, title, snippet })
+      })
+    } else {
+      // Fallback to general search results.
+      const generalElements = document.querySelectorAll(".g")
+      generalElements.forEach((element) => {
+        const titleEl = element.querySelector("h3")
+        const urlEl = element.querySelector("a")
+        if (!titleEl || !urlEl) return
 
-        // Extract description - try multiple possible selectors
-        const descEl = element.querySelector('.VwiC3b, .s, [data-content-feature="1"]');
-        const description = descEl?.textContent?.trim() || '';
+        const title = titleEl.textContent?.trim() || ""
+        const url = urlEl.getAttribute("href") || ""
+        if (!title || !url) return
 
-        // Only add if we have at least a title and URL
-        if (title && url && !results.some(r => r.url === url)) { // Avoid duplicates
-          results.push({ title, url, description });
-        }
-      }
-
-      // If we found enough results, stop trying other selectors
-      if (results.length >= MAX_SEARCH_RESULTS) break;
+        results.push({ title, url })
+      })
     }
 
-    // Format results based on response type
-    switch (responseType) {
-      case 'json':
-        return JSON.stringify(results, null, 2);
-
-      case 'html':
-        return results.map(result => `
-          <div class="search-result">
-            <h3><a href="${result.url}">${result.title}</a></h3>
-            <div class="url">${result.url}</div>
-            <div class="description">${result.description}</div>
-          </div>
-        `).join('\n');
-
-      case 'markdown':
-        return results.map((result, index) => `
-${index + 1}. **${result.title}**
-   - URL: ${result.url}
-   - Description: ${result.description}
-`).join('\n\n');
-
-      case 'text':
-      default:
-        return results.map((result, index) => `
-${index + 1}. ${result.title}
-   URL: ${result.url}
-   Description: ${result.description}
-`).join('\n\n');
+    // Process results based on the requested response type.
+    if (responseType === 'text') {
+      return results.map(r => `${r.title} - ${r.url}`).join('\n')
+    } else if (responseType === 'json') {
+      return results
+    } else if (responseType === 'html') {
+      return document.body.innerHTML
+    } else if (responseType === 'markdown') {
+      // A simple markdown conversion. You might refine this further with a markdown converter.
+      return results
+        .map(r => `# ${r.title}\n${r.url}\n${r.snippet ? r.snippet + "\n" : ""}`)
+        .join("\n")
     }
+
+    return results
   } catch (error) {
-    console.error('Error parsing Google results:', error);
-    throw new Error(`Failed to parse Google search results: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    throw new Error(
+      `Failed to parse Google search results: ${error instanceof Error ? error.message : 'Unknown error'
+      }`
+    )
   }
 }
 
@@ -173,7 +172,8 @@ async function processResponse(response: Response, responseType: 'text' | 'json'
 
   // Special handling for Google search results
   if (url.origin + url.pathname === GOOGLE_SEARCH_URL) {
-    return extractGoogleResults(text, responseType);
+    const results = extractGoogleResults(text, responseType);
+    return typeof results === 'string' ? results : JSON.stringify(results, null, 2);
   }
 
   switch (responseType) {
