@@ -14,35 +14,11 @@ import { registerUrlFetcherTool } from "./url-fetcher.js";
 import { registerGoogleSearchTool } from "./google-search.js";
 
 /**
- * Create a new MCP server instance with full capabilities
+ * Create a new MCP server instance
  */
 const server = new McpServer({
   name: "fetch-browser",
-  version: "0.1.0",
-  capabilities: {
-    tools: {
-      fetch_url: {
-        description: "Fetch content from a URL with proper error handling and response processing",
-        parameters: {
-          url: "The URL to fetch",
-          responseType: "Expected response type (text, json, html, markdown)",
-          timeout: "Request timeout in milliseconds (optional)"
-        }
-      },
-      google_search: {
-        description: "Execute a Google search and return results in various formats",
-        parameters: {
-          query: "The search query to execute",
-          responseType: "Expected response type (text, json, html, markdown)",
-          maxResults: "Maximum number of results to return (optional)",
-          topic: "Type of search to perform (web or news)"
-        }
-      }
-    },
-    resources: {},
-    prompts: {},
-    streaming: true
-  }
+  version: "0.1.0"
 });
 
 /**
